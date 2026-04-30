@@ -1,4 +1,4 @@
-# Energy Optimization Agent MVP
+# Energy Optimization Agent 
 
 Vendor-neutral manufacturing energy optimization app (FastAPI + React + SQLite).
 
