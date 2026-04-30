@@ -1,6 +1,7 @@
 from io import StringIO
 import pandas as pd
 from fastapi import APIRouter, Depends, File, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models, schemas
@@ -43,10 +44,18 @@ def summary(db: Session = Depends(get_db)):
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     total_kwh = float(df.current_power_kw.sum())
     peak_kw = float(df.current_power_kw.max())
-    costs = estimate_costs(total_kwh/14, peak_kw, settings.electricity_rate, settings.demand_charge_rate)
-    top = df.groupby('machine_name')['current_power_kw'].sum().sort_values(ascending=False).head(5)
+    days = (df['timestamp'].max() - df['timestamp'].min()).days
+    days = days if days > 0 else 1
+    costs = estimate_costs(total_kwh / days, peak_kw, settings.electricity_rate, settings.demand_charge_rate)
+
+    top_rows = db.query(
+        models.EnergyReading.machine_name,
+        func.sum(models.EnergyReading.current_power_kw).label('total_kw')
+    ).group_by(models.EnergyReading.machine_name)
+    top_rows = top_rows.order_by(func.sum(models.EnergyReading.current_power_kw).desc()).limit(5).all()
+    top = {row.machine_name: float(row.total_kw) for row in top_rows}
     peak_periods = df.groupby(df.timestamp.dt.hour)['current_power_kw'].mean().sort_values(ascending=False).head(3)
-    return {"total_kwh": round(total_kwh,2), "estimated_cost": costs['monthly_cost'], "peak_demand_periods": peak_periods.to_dict(), "top_machines": top.to_dict(), "monthly_savings_opportunity": costs['potential_savings']}
+    return {"total_kwh": round(total_kwh,2), "estimated_cost": costs['monthly_cost'], "peak_demand_periods": peak_periods.to_dict(), "top_machines": top, "monthly_savings_opportunity": costs['potential_savings']}
 
 @router.get('/settings', response_model=schemas.SettingSchema)
 def get_settings(db: Session = Depends(get_db)):
