@@ -2,12 +2,14 @@ import pandas as pd
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from ..database import get_db
+
 from .. import models
-from ..analytics.anomaly_detection import detect_anomalies
 from ..analytics.advisor_engine import answer_question
+from ..analytics.anomaly_detection import detect_anomalies
+from ..analytics.query_services import get_top_machines, load_readings_df
 from ..analytics.recommendation_engine import generate_recommendations
 from ..crud import get_or_create_settings
+from ..database import get_db
 
 router = APIRouter()
 
@@ -18,33 +20,19 @@ class Query(BaseModel):
 
 @router.post('/advisor/query')
 def advisor_query(payload: Query, db: Session = Depends(get_db)):
-    rows = db.query(models.EnergyReading).all()
+    df = load_readings_df(db)
     machines = db.query(models.Machine).all()
-    df = pd.DataFrame([
-        {
-            "timestamp": r.timestamp,
-            "machine_id": r.machine_id,
-            "machine_name": r.machine_name,
-            "production_line": r.production_line,
-            "machine_type": r.machine_type,
-            "current_power_kw": r.current_power_kw,
-            "utilization_percent": r.utilization_percent,
-            "units_produced": r.units_produced,
-        }
-        for r in rows
-    ])
     if df.empty:
         return {"answer": "No energy data available to answer your query."}
 
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-    top = df.groupby('machine_name')['current_power_kw'].sum().sort_values(ascending=False)
+    top_machines = get_top_machines(db, limit=1)
     line = df.groupby('production_line')['current_power_kw'].sum().sort_values(ascending=False)
 
     anoms = detect_anomalies(df)
     recs = generate_recommendations(df, anoms, machines, get_or_create_settings(db))
 
-    top_machine_name = top.index[0] if not top.empty else "N/A"
-    top_machine_kwh = float(top.iloc[0]) if not top.empty else 0.0
+    top_machine_name, top_machine_kwh = (next(iter(top_machines.items())) if top_machines else ("N/A", 0.0))
     top_line_name = line.index[0] if not line.empty else "N/A"
     top_line_kwh = float(line.iloc[0]) if not line.empty else 0.0
 
