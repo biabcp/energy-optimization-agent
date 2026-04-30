@@ -1,4 +1,40 @@
+import json
+import os
+
+
+def _llm_answer(question: str, context: dict) -> str | None:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key)
+        system_prompt = (
+            "You are an energy optimization expert. "
+            "Answer user questions from the provided JSON context. "
+            "If data is missing, explicitly say what is missing.\n"
+            f"Context: {json.dumps(context)}"
+        )
+        completion = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question},
+            ],
+            temperature=0.2,
+        )
+        return completion.choices[0].message.content
+    except Exception:
+        return None
+
+
 def answer_question(question: str, context: dict):
+    llm_response = _llm_answer(question, context)
+    if llm_response:
+        return llm_response
+
     q = question.lower()
     if any(k in q for k in ["most energy", "highest usage", "wasting"]):
         top = context.get("top_machine")
