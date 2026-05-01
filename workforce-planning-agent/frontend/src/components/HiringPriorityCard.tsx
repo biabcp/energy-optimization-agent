@@ -1,0 +1,1 @@
+export default function HiringPriorityCard(){return <div>HiringPriorityCard</div>}

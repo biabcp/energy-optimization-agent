@@ -1,0 +1,1 @@
+export default function HeadcountTrendChart(){return <div>HeadcountTrendChart</div>}

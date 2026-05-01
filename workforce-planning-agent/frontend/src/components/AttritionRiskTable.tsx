@@ -1,0 +1,1 @@
+export default function AttritionRiskTable(){return <div>AttritionRiskTable</div>}
