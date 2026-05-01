@@ -1,0 +1,1 @@
+export default function Advisor(){return <div>Advisor</div>}

@@ -1,0 +1,1 @@
+export default function SkillGapCard(){return <div>SkillGapCard</div>}

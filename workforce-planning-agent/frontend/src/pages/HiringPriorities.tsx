@@ -1,0 +1,1 @@
+export default function HiringPriorities(){return <div>HiringPriorities</div>}

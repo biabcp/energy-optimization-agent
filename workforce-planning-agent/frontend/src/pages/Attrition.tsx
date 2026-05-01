@@ -1,0 +1,1 @@
+export default function Attrition(){return <div>Attrition</div>}

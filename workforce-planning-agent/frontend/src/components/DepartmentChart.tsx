@@ -1,0 +1,1 @@
+export default function DepartmentChart(){return <div>DepartmentChart</div>}
